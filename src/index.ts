@@ -3,29 +3,39 @@
 //
 // - このファイルは、npm packageのエントリーポイントである。
 // - UIに関する実装は行わない。
-// - ポケカの公式ルール
-//   - 基本: https://www.pokemon-card.com/rules/howtoplay/
-//   - 上級ルール: https://www.pokemon-card.com/assets/document/advanced_manual.pdf
-//
+// - ポケカの公式ルールブック
+//   - 日本語
+//     - 基本: https://www.pokemon-card.com/rules/howtoplay/
+//     - 上級ルール: https://www.pokemon-card.com/assets/document/advanced_manual.pdf
+//   - 英語
+//     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
+//     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 
 // ポケカの仕様全般に関する疑問メモ
 //
 // - 同じカードでも異なるカードになっているものは何が違うのか。
 //   - 例えば、「ふしぎなアメ」の 014/021 と 013/019
 
-type CardTypeEnergy = "energy";
-type CardTypeEquipment = "equipment";
-type CardTypeGoods = "goods";
-type CardTypePokemon = "pokemon";
-type CardTypeStadium = "stadium";
-type CardTypeSupport = "support";
-type CardType =
-  | CardTypeEnergy
-  | CardTypeEquipment
-  | CardTypeGoods
-  | CardTypePokemon
-  | CardTypeStadium
-  | CardTypeSupport;
+/**
+ * カードの種類
+ *
+ * - トレーナーズカードを展開した上での種類なので、公式の用語と一致しない
+ *   - 公式の「カードの種類」（英: Card Type）は、「ポケモンカード」「トレーナーズカード」「エネルギーカード」の3種類のみ
+ *  - TypeとSubTypeのような概念に分けてしまうと、TypeScript上でTagged Union Typesが使いにくくなる
+ */
+type CardKindEnergy = "energy";
+type CardKindItem = "item";
+type CardKindPokemon = "pokemon";
+type CardKindPokemonTool = "pokemonTool";
+type CardKindStadium = "stadium";
+type CardKindSupporter = "supporter";
+type CardKind =
+  | CardKindEnergy
+  | CardKindItem
+  | CardKindPokemon
+  | CardKindPokemonTool
+  | CardKindStadium
+  | CardKindSupporter;
 
 /**
  * 拡張パックの一覧
@@ -58,7 +68,8 @@ type RarityMark =
   | "U"
   | "UR";
 
-type EnergyCardType =
+type EnergyKind =
+  | "colorless"
   | "darkness"
   | "dragon"
   | "fairy"
@@ -70,13 +81,17 @@ type EnergyCardType =
   | "psychic"
   | "water";
 
-type EnergyType = EnergyCardType | "colorless";
-
 type CardId = `${ExpansionCode}-${CollectorCardNumber}`;
 
+/**
+ * エネルギーカード（英: Energy Card）
+ *
+ * - スターターキットでは、8種類の基本エネルギーしかない
+ * - 他も実装しようとすると、複雑な挙動をするものがいくつかある
+ */
 type EnergyCard = {
-  cardType: CardTypeEnergy;
-  energyType: EnergyCardType;
+  cardKind: CardKindEnergy;
+  energyKind: EnergyKind;
 };
 
 // グッズカードの効果類型メモ
@@ -183,7 +198,7 @@ type RangedNumberConditionParams =
       min: number;
     };
 type CardCountConditionParams = {
-  filterByCardTypes?: CardType[];
+  filterByCardKinds?: CardKind[];
 } & RangedNumberConditionParams;
 
 /**
@@ -200,7 +215,7 @@ type Condition =
     }
   | {
       kind: "handSizeRange";
-      filterByCardTypes?: CardType[];
+      filterByCardKinds?: CardKind[];
       params: CardCountConditionParams;
     };
 
@@ -212,8 +227,11 @@ type EffectActivation = {
   ineffectiveConditions: Condition[];
 };
 
-type GoodsCard = {
-  cardType: CardTypeGoods;
+/**
+ * グッズカード（英: Item Card）
+ */
+type ItemCard = {
+  cardKind: CardKindItem;
 };
 
 type Card = {
@@ -226,22 +244,7 @@ type Card = {
   expansionCode: ExpansionCode;
   rarityMark: RarityMark;
   regulationMark: RegulationMark;
-} & (
-  | EnergyCard
-  | GoodsCard
-  | {
-      cardType: CardTypeEquipment;
-    }
-  | {
-      cardType: CardTypePokemon;
-    }
-  | {
-      cardType: CardTypeStadium;
-    }
-  | {
-      cardType: CardTypeSupport;
-    }
-);
+} & (EnergyCard | ItemCard);
 
 type Game = {};
 
