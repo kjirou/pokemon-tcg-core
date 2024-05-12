@@ -13,6 +13,20 @@
 // - 同じカードでも異なるカードになっているものは何が違うのか。
 //   - 例えば、「ふしぎなアメ」の 014/021 と 013/019
 
+type CardTypeEnergy = "energy";
+type CardTypeEquipment = "equipment";
+type CardTypeGoods = "goods";
+type CardTypePokemon = "pokemon";
+type CardTypeStadium = "stadium";
+type CardTypeSupport = "support";
+type CardType =
+  | CardTypeEnergy
+  | CardTypeEquipment
+  | CardTypeGoods
+  | CardTypePokemon
+  | CardTypeStadium
+  | CardTypeSupport;
+
 /**
  * 拡張パックの一覧
  *
@@ -26,6 +40,8 @@ const expansions = {
 } as const;
 
 type ExpansionCode = keyof typeof expansions;
+
+type CollectorCardNumber = string;
 
 type RegulationMark = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
 
@@ -56,8 +72,10 @@ type EnergyCardType =
 
 type EnergyType = EnergyCardType | "colorless";
 
+type CardId = `${ExpansionCode}-${CollectorCardNumber}`;
+
 type EnergyCard = {
-  cardType: "energy";
+  cardType: CardTypeEnergy;
   energyType: EnergyCardType;
 };
 
@@ -153,7 +171,38 @@ type EnergyCard = {
 // > また1枚も選ばないこともでき、その場合はカードを選ぶ行為を終わります。
 // > ただし好きなカードを選ぶように指示された場合は、必ず指定された枚数を選ばなければいけません。
 
-type Condition = {};
+type RangedNumberConditionParams =
+  | {
+      max: number;
+    }
+  | {
+      min: number;
+    }
+  | {
+      max: number;
+      min: number;
+    };
+type CardCountConditionParams = {
+  filterByCardTypes?: CardType[];
+} & RangedNumberConditionParams;
+
+/**
+ * 効果を発動するための条件
+ */
+type Condition =
+  | {
+      kind: "benchedPokemonRange";
+      params: RangedNumberConditionParams;
+    }
+  | {
+      kind: "deckSizeRange";
+      params: CardCountConditionParams;
+    }
+  | {
+      kind: "handSizeRange";
+      filterByCardTypes?: CardType[];
+      params: CardCountConditionParams;
+    };
 
 type Effect = {};
 
@@ -164,7 +213,7 @@ type EffectActivation = {
 };
 
 type GoodsCard = {
-  cardType: "goods";
+  cardType: CardTypeGoods;
 };
 
 type Card = {
@@ -173,7 +222,7 @@ type Card = {
    *
    * - 基本的には"001/002"の様な形式だが、数値以外の文字が入ることもある。把握し切れないので、とりあえず文字列型としている。
    */
-  collectorCardNumber: string;
+  collectorCardNumber: CollectorCardNumber;
   expansionCode: ExpansionCode;
   rarityMark: RarityMark;
   regulationMark: RegulationMark;
@@ -181,16 +230,16 @@ type Card = {
   | EnergyCard
   | GoodsCard
   | {
-      cardType: "equipment";
+      cardType: CardTypeEquipment;
     }
   | {
-      cardType: "pokemon";
+      cardType: CardTypePokemon;
     }
   | {
-      cardType: "stadium";
+      cardType: CardTypeStadium;
     }
   | {
-      cardType: "support";
+      cardType: CardTypeSupport;
     }
 );
 
