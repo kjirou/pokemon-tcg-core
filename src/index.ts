@@ -94,22 +94,6 @@ type EnergyCard = {
   energyKind: EnergyKind;
 };
 
-// グッズカードの効果類型メモ
-//
-// - 山札をシャッフルするか
-// - トラッシュから各種カードを取り出すか
-// - 山札から各種カードを取り出すか
-// - カードを引くか
-// - カードを捨てるか
-// - ポケモンをベンチに出すか
-// - 手札のトラッシュが必要か
-// - 進化させるか
-// - バトルポケモンをベンチポケモンと入れ替えるか
-// - 場のポケモンを手札に戻す
-// - 山札を上から見る
-// - 使用に条件があるもの
-// - エネルギーをトラッシュ
-
 // スターターデッキの情報
 //
 // ### グッズカード
@@ -159,7 +143,6 @@ type EnergyCard = {
 //
 // ### ロジック上問題になりそうな箇所のメモ
 //
-// > 条件に従うことができない場合は、その特性を宣言できません。また2.まで行った結果で状況の変化が何も起きないことがわかっている場合も、その特性は宣言できません。
 //
 // > 自動的にはたらく特性の効果をプレイヤーの意思でなくすことはできません。
 //
@@ -198,33 +181,73 @@ type RangedNumberConditionParams =
       min: number;
     };
 type CardCountConditionParams = {
-  filterByCardKinds?: CardKind[];
+  cardKinds?: CardKind[];
 } & RangedNumberConditionParams;
+/**
+ * 自分か相手かの場の種類
+ *
+ * - 英語の公式では、"you"と"his or her"が使われている
+ */
+type SideConditionParams = {
+  sideKind: "both" | "opponent" | "player";
+};
+type ZoneConditionParams = {
+  zoneKind: "all" | "bench" | "activeSpot";
+};
 
 /**
  * 効果を発動するための条件
+ *
+ * 関連する公式ルールは、上級プレイヤー用ルールガイド内の「状況の変化が何も起きないことがわかっている場合」と書いてある複数の箇所
+ * 例えば、特性の項目の場合の記述は以下の通り
+ * > 条件に従うことができない場合は、その特性を宣言できません。また2.まで行った結果で状況の変化が何も起きないことがわかっている場合も、その特性は宣言できません。
+ *
+ * TODO: 山札から特定種類のカードを選ぶ効果を選び、かつ、山札に1枚もその種類のカードがない場合、「状況の変化が何も起きない」に該当するのか？
  */
 type Condition =
   | {
-      kind: "benchedPokemonRange";
+      kind: "benchedPokemonCount";
       params: RangedNumberConditionParams;
     }
   | {
-      kind: "deckSizeRange";
+      kind: "coinFlip";
+      params: {};
+    }
+  | {
+      kind: "damageToAnyPokemon";
+      params: RangedNumberConditionParams;
+    }
+  | {
+      kind: "deckCount";
       params: CardCountConditionParams;
     }
   | {
-      kind: "handSizeRange";
-      filterByCardKinds?: CardKind[];
+      kind: "discardPileCount";
+      params: CardCountConditionParams;
+    }
+  | {
+      kind: "energyCount";
+      params: {
+        energyKinds: EnergyKind[];
+      } & SideConditionParams &
+        ZoneConditionParams &
+        RangedNumberConditionParams;
+    }
+  | {
+      kind: "handCount";
       params: CardCountConditionParams;
     };
 
 type Effect = {};
 
 type EffectActivation = {
+  /**
+   * 効果を発動するための条件
+   *
+   * - 例えば、ポケモンコインを投げてオモテが出たか
+   */
   conditions: Condition[];
   effects: Effect[];
-  ineffectiveConditions: Condition[];
 };
 
 /**
@@ -232,6 +255,13 @@ type EffectActivation = {
  */
 type ItemCard = {
   cardKind: CardKindItem;
+  /**
+   * カードが使用できるかの条件
+   *
+   * - 例えば、手札から2枚トラッシュする場合に、手札が2枚存在するか
+   */
+  conditions: Condition[];
+  effectActivations: EffectActivation[];
 };
 
 type Card = {
