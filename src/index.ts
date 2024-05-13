@@ -21,7 +21,7 @@
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 // - 疑問メモ
 //   - 同じカードでも異なるカードになっているものは何が違うのか。
-//   - 例えば、「ふしぎなアメ」の 014/021 と 013/019
+//     - 例えば、「ふしぎなアメ」の 014/021 と 013/019
 
 // スターターデッキの調査
 //
@@ -84,22 +84,27 @@
 // > ただし好きなカードを選ぶように指示された場合は、必ず指定された枚数を選ばなければいけません。
 
 /**
- * カードの種類
+ * カードの振る舞い別の種類
  *
- * - トレーナーズカードを展開した上での種類なので、公式の用語と一致しない
+ * - 各カードの種類内の副種類を展開した上での種類なので、公式の用語と一致しない
  *   - 公式の「カードの種類」（英: Card Type）は、「ポケモンカード」「トレーナーズカード」「エネルギーカード」の3種類のみ
- *  - TypeとSubTypeのような概念に分けてしまうと、TypeScript上でTagged Union Typesが使いにくくなる
+ * - ここの一覧は、海外版DB( https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/ )のAdvanced SearchのCard Typeの項目が参考になる
+ * - TypeとSubTypeのような概念に分けても表現可能かは不明、そもそも公式がツリー状の概念になっているか不明だし、TypeScript上でTagged Union Typesが使いにくくなるなどがあるかもしれない
  */
 type CardKindEnergy = "energy";
 type CardKindItem = "item";
-type CardKindPokemon = "pokemon";
+type CardKindPokemonBasic = "pokemonBasic";
+type CardKindPokemonStage1 = "pokemonStage1";
+type CardKindPokemonStage2 = "pokemonStage2";
 type CardKindPokemonTool = "pokemonTool";
 type CardKindStadium = "stadium";
 type CardKindSupporter = "supporter";
 type CardKind =
   | CardKindEnergy
   | CardKindItem
-  | CardKindPokemon
+  | CardKindPokemonBasic
+  | CardKindPokemonStage1
+  | CardKindPokemonStage2
   | CardKindPokemonTool
   | CardKindStadium
   | CardKindSupporter;
@@ -186,12 +191,6 @@ type ZoneConditionParams = {
 
 /**
  * 効果を発動するための条件
- *
- * 関連する公式ルールは、上級プレイヤー用ルールガイド内の「状況の変化が何も起きないことがわかっている場合」と書いてある複数の箇所
- * 例えば、特性の項目の場合の記述は以下の通り
- * > 条件に従うことができない場合は、その特性を宣言できません。また2.まで行った結果で状況の変化が何も起きないことがわかっている場合も、その特性は宣言できません。
- *
- * TODO: 山札から特定種類のカードを選ぶ効果を選び、かつ、山札に1枚もその種類のカードがない場合、「状況の変化が何も起きない」に該当するのか？
  */
 type Condition =
   | {
@@ -223,6 +222,10 @@ type Condition =
         RangedNumberConditionParams;
     };
 
+type DistributeToEffectParams = {
+  distributeTo: "bench" | "hand";
+};
+
 /**
  * 効果
  *
@@ -233,9 +236,21 @@ type Effect =
       effectKind: "drawCards";
       params: {
         cardZone: "deck" | "discardPile";
-        distributeTo: "bench" | "hand";
         numberOfCards: number;
-      };
+      } & DistributeToEffectParams;
+    }
+  | {
+      effectKind: "selectCardsFromDeck";
+      params: {
+        cardKinds: CardKind[];
+        numberOfCards: number;
+        /**
+         * めくれるカードの枚数
+         *
+         * - 指定しない場合は、全てのカードをめくることができる
+         */
+        numberOfCardsToFlip?: number;
+      } & DistributeToEffectParams;
     }
   | {
       effectKind: "shuffleDeck";
@@ -251,7 +266,7 @@ type EffectActivation = {
    *
    * - 例えば、ポケモンコインを投げてオモテが出たか
    */
-  conditions: Condition[];
+  conditions?: Condition[];
   effects: Effect[];
 };
 
@@ -261,9 +276,12 @@ type EffectActivation = {
 type ItemCard = {
   cardKind: CardKindItem;
   /**
-   * カードが使用できるかの条件
+   * カードを使用するために選択できるのかの条件
    *
    * - 例えば、手札から2枚トラッシュする場合に、手札が2枚存在するか
+   *  - 関連する公式ルールは、上級プレイヤー用ルールガイド内の「状況の変化が何も起きないことがわかっている場合」と書いてある複数の箇所、例えば、特性の項目の場合の記述は以下の通り
+   *    > 条件に従うことができない場合は、その特性を宣言できません。また2.まで行った結果で状況の変化が何も起きないことがわかっている場合も、その特性は宣言できません。
+   *  - TODO: 山札から特定種類のカードを選ぶ効果を選び、かつ、山札に1枚もその種類のカードがない場合、「状況の変化が何も起きない」に該当するのか？
    */
   conditions: Condition[];
   /**
