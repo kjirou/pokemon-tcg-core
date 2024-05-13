@@ -1,8 +1,17 @@
+/**
+ * このコメントブロックは、主にCopilotに対する指示を記述するためのものである。
+ *
+ * - このファイル及び関連するファイル群は、ポケモンカードゲーム(Pokémon Trading Card Game)のルールを実装するためのライブラリである。
+ * - ライブラリ名もしくはプロジェクト名は、"pokemon-tcg-core"である。
+ * - このファイルは、npm packageのエントリーポイントである。
+ * - UIに関する実装は行わない。
+ * - TypeScriptの型のプロパティ名を列挙する際は、キャメルケースを使い、アルファベット降順に並べる。
+ * - TypeScriptの型でstringのUnion型を列挙する際は、アルファベット降順に並べる。
+ * - ソースコードのコメントに関しては、Copilotは提案を行わない。
+ */
+
+// ポケカの仕様全般に関するメモ
 //
-// ポケモンカードゲーム(Pokémon Trading Card Game)のルールを実装するためのライブラリ
-//
-// - このファイルは、npm packageのエントリーポイントである。
-// - UIに関する実装は行わない。
 // - ポケカの公式ルールブック
 //   - 日本語
 //     - 基本: https://www.pokemon-card.com/rules/howtoplay/
@@ -10,10 +19,8 @@
 //   - 英語
 //     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
-
-// ポケカの仕様全般に関する疑問メモ
-//
-// - 同じカードでも異なるカードになっているものは何が違うのか。
+// - 疑問メモ
+//   - 同じカードでも異なるカードになっているものは何が違うのか。
 //   - 例えば、「ふしぎなアメ」の 014/021 と 013/019
 
 // スターターデッキの調査
@@ -188,11 +195,11 @@ type ZoneConditionParams = {
  */
 type Condition =
   | {
-      kind: "benchedPokemonCount";
+      conditionKind: "benchedPokemonCount";
       params: RangedNumberConditionParams;
     }
   | {
-      kind: "cardCount";
+      conditionKind: "cardCount";
       params: {
         /** 指定しない場合は、全ての種類を意味する */
         cardKinds?: CardKind[];
@@ -200,15 +207,15 @@ type Condition =
       } & RangedNumberConditionParams;
     }
   | {
-      kind: "coinFlip";
+      conditionKind: "coinFlip";
       params: {};
     }
   | {
-      kind: "damageToAnyPokemon";
+      conditionKind: "damageToAnyPokemon";
       params: RangedNumberConditionParams;
     }
   | {
-      kind: "energyCount";
+      conditionKind: "energyCount";
       params: {
         energyKinds: EnergyKind[];
       } & SideConditionParams &
@@ -216,8 +223,28 @@ type Condition =
         RangedNumberConditionParams;
     };
 
-type Effect = {};
+/**
+ * 効果
+ *
+ * - ポケモンの特性・ワザ、グッズカード、サポートカードなど、全般的な効果を表す
+ */
+type Effect =
+  | {
+      effectKind: "drawCards";
+      params: {
+        cardZone: "deck" | "discardPile";
+        distributeTo: "bench" | "hand";
+        numberOfCards: number;
+      };
+    }
+  | {
+      effectKind: "shuffleDeck";
+      params: {};
+    };
 
+/**
+ * 効果発動
+ */
 type EffectActivation = {
   /**
    * 効果を発動するための条件
@@ -239,6 +266,11 @@ type ItemCard = {
    * - 例えば、手札から2枚トラッシュする場合に、手札が2枚存在するか
    */
   conditions: Condition[];
+  /**
+   * 効果発動リスト
+   *
+   * - ある効果発動の条件を満たさなかった場合は、そこで効果発動全体が終了する
+   */
   effectActivations: EffectActivation[];
 };
 
