@@ -309,6 +309,15 @@ type Effect =
   | {
       effectKind: "shuffleDeck";
       params: {};
+    }
+  /**
+   * 2進化できるたねポケモンの1進化をとばして2進化させる
+   *
+   * - 現状は、ふしぎなアメの効果と全く同じ
+   */
+  | {
+      effectKind: "substituteStage1PokemonWhenEvolvingToStage2";
+      params: {};
     };
 
 /**
