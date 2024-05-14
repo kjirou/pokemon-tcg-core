@@ -7,7 +7,7 @@
  * - UIに関する実装は行わない。
  * - TypeScriptの型のプロパティ名を列挙する際は、キャメルケースを使い、アルファベット降順に並べる。
  * - TypeScriptの型でstringのUnion型を列挙する際は、アルファベット降順に並べる。
- * - ソースコードのコメントに関しては、Copilotは提案を行わない。
+ * - ソースコードのコメント内では、Copilotは絶対に提案を行わないこと。
  */
 
 // ポケカの仕様全般に関するメモ
@@ -123,6 +123,11 @@ const expansions = {
 
 type ExpansionCode = keyof typeof expansions;
 
+/**
+ * コレクションナンバー(英: Collector Card Number)
+ *
+ * - 基本的には"001/002"の様な形式だが、数値以外の文字が入ることもある。把握し切れないので、とりあえず文字列型としている。
+ */
 type CollectorCardNumber = string;
 
 type RegulationMark = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
@@ -155,8 +160,17 @@ type EnergyKind =
 
 type CardId = `${ExpansionCode}-${CollectorCardNumber}`;
 
+type PokemonTargetting =
+  | {
+      pokemonTargettingKind: "activeSpot";
+    }
+  | {
+      pokemonTargettingKind: "bench";
+      benchIndex: number;
+    };
+
 /**
- * エネルギーカード（英: Energy Card）
+ * エネルギーカード(英: Energy Card)
  *
  * - スターターキットでは、8種類の基本エネルギーしかない
  * - 他も実装しようとすると、複雑な挙動をするものがいくつかある
@@ -166,6 +180,9 @@ type EnergyCard = {
   energyKind: EnergyKind;
 };
 
+type PokemonZoneConditionParams = {
+  zone: "all" | "bench" | "activeSpot";
+};
 type RangedNumberConditionParams =
   | {
       max: number;
@@ -185,12 +202,12 @@ type RangedNumberConditionParams =
 type SideConditionParams = {
   side: "both" | "opponent" | "player";
 };
-type ZoneConditionParams = {
-  zone: "all" | "bench" | "activeSpot";
-};
 
 /**
- * 効果を発動するための条件
+ * 条件
+ *
+ * - 各種カードのテキストに含まれる条件群を抽象化・構造化したもの
+ * - ゲームプレイ中のユーザー入力によって明らかになる値は、引数として定義しないこと
  */
 type Condition =
   | {
@@ -218,8 +235,37 @@ type Condition =
       params: {
         energyKinds: EnergyKind[];
       } & SideConditionParams &
-        ZoneConditionParams &
+        PokemonZoneConditionParams &
         RangedNumberConditionParams;
+    }
+  /**
+   * 通常の進化ができるポケモン数
+   *
+   * - 手札を含めて進化できるかを判定する
+   * - ふしぎなアメなど、通常の進化とは異なる進化方法はここでは扱わない
+   */
+  | {
+      conditionKind: "evolveablePokemonCount";
+      params:
+        | {
+            /**
+             * 進化元ポケモンの種類
+             *
+             * - 指定しない場合は、全ての種類を意味する
+             */
+            cardKind?: CardKindPokemonBasic | CardKindPokemonStage1;
+          }
+        | PokemonZoneConditionParams
+        | RangedNumberConditionParams;
+    }
+  /**
+   * ふしぎなアメを使えるポケモン数
+   *
+   * - 手札を含めて使えるかを判定する
+   */
+  | {
+      conditionKind: "rareCandyUsablePokemonCount";
+      params: PokemonZoneConditionParams | RangedNumberConditionParams;
     };
 
 type DistributeToEffectParams = {
@@ -229,9 +275,17 @@ type DistributeToEffectParams = {
 /**
  * 効果
  *
- * - ポケモンの特性・ワザ、グッズカード、サポートカードなど、全般的な効果を表す
+ * - 各種カードのテキストに含まれる効果群を抽象化・構造化したもの
+ * - ゲームプレイ中のユーザー入力によって明らかになる値は、引数として定義しないこと
  */
 type Effect =
+  | {
+      effectKind: "discardCards";
+      params: {
+        cardKinds: CardKind[];
+        numberOfCards: number;
+      };
+    }
   | {
       effectKind: "drawCards";
       params: {
@@ -271,7 +325,7 @@ type EffectActivation = {
 };
 
 /**
- * グッズカード（英: Item Card）
+ * グッズカード(英: Item Card)
  */
 type ItemCard = {
   cardKind: CardKindItem;
@@ -279,9 +333,11 @@ type ItemCard = {
    * カードを使用するために選択できるのかの条件
    *
    * - 例えば、手札から2枚トラッシュする場合に、手札が2枚存在するか
-   *  - 関連する公式ルールは、上級プレイヤー用ルールガイド内の「状況の変化が何も起きないことがわかっている場合」と書いてある複数の箇所、例えば、特性の項目の場合の記述は以下の通り
-   *    > 条件に従うことができない場合は、その特性を宣言できません。また2.まで行った結果で状況の変化が何も起きないことがわかっている場合も、その特性は宣言できません。
-   *  - TODO: 山札から特定種類のカードを選ぶ効果を選び、かつ、山札に1枚もその種類のカードがない場合、「状況の変化が何も起きない」に該当するのか？
+   * - 使用した結果、条件を満たさないなどで明らかに効果が発動できない状況では、カードを使用できない
+   *   - 関連する公式ルールは、上級プレイヤー用ルールガイド内の「状況の変化が何も起きないことがわかっている場合」と書いてある複数の箇所、例えば、特性の項目の場合の記述は以下の通り
+   *     > 条件に従うことができない場合は、その特性を宣言できません。また2.まで行った結果で状況の変化が何も起きないことがわかっている場合も、その特性は宣言できません。
+   *   - なお、「デッキの枚数から逆算して、山札に特定の種類のカードが含まれていないことがわかる」は、「状況の変化が何も起きないことがわかっている場合」には該当しない
+   *     - 有識者から確認した
    */
   conditions: Condition[];
   /**
@@ -293,11 +349,6 @@ type ItemCard = {
 };
 
 type Card = {
-  /**
-   * コレクションナンバー
-   *
-   * - 基本的には"001/002"の様な形式だが、数値以外の文字が入ることもある。把握し切れないので、とりあえず文字列型としている。
-   */
   collectorCardNumber: CollectorCardNumber;
   expansionCode: ExpansionCode;
   rarityMark: RarityMark;
