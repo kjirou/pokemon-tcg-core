@@ -20,8 +20,6 @@
 //     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 // - 疑問メモ
-//   - 同じカードでも異なるカードになっているものは何が違うのか。
-//     - 例えば、「ふしぎなアメ」の 014/021 と 013/019
 
 // スターターデッキの調査
 //
@@ -170,6 +168,13 @@ type PokemonTargetting =
     };
 
 /**
+ * 自分か相手かの場の種類
+ *
+ * - 英語の公式では、"you"と"his or her"が使われている
+ */
+type PlayerSide = "opponent" | "player";
+
+/**
  * エネルギーカード(英: Energy Card)
  *
  * - スターターキットでは、8種類の基本エネルギーしかない
@@ -194,13 +199,8 @@ type RangedNumberConditionParams =
       max: number;
       min: number;
     };
-/**
- * 自分か相手かの場の種類
- *
- * - 英語の公式では、"you"と"his or her"が使われている
- */
 type SideConditionParams = {
-  side: "both" | "opponent" | "player";
+  playerSide: PlayerSide;
 };
 
 /**
@@ -268,8 +268,23 @@ type Condition =
       params: PokemonZoneConditionParams | RangedNumberConditionParams;
     };
 
+/**
+ * カードの種類の絞り込み
+ *
+ * - cardIdsやcardAliasGroupIdsとAND条件になる、どれも存在しない時は任意のカードを選択できる
+ */
+type CardFilteringEffectParams = {
+  cardAliasGroupIds?: string[];
+  cardIds?: CardId[];
+  cardKinds?: CardKind[];
+};
+
 type DistributeToEffectParams = {
   distributeTo: "bench" | "hand";
+};
+
+type PlayerSideEffectParams = {
+  playerSide: PlayerSide;
 };
 
 /**
@@ -280,9 +295,17 @@ type DistributeToEffectParams = {
  */
 type Effect =
   | {
-      effectKind: "discardCards";
+      effectKind: "discardCardsInHand";
       params: {
-        cardKinds: CardKind[];
+        cardKinds?: CardKind[];
+        numberOfCards: number;
+      };
+    }
+  | {
+      effectKind: "discardCardsOnPokemon";
+      params: {
+        cardKinds?: "energy" | "pokemonTool";
+        // WIP: 任意のポケモン数から任意枚指定できるか、ポケモンそれぞれから任意数指定できるかの表現
         numberOfCards: number;
       };
     }
@@ -296,7 +319,6 @@ type Effect =
   | {
       effectKind: "selectCardsFromDeck";
       params: {
-        cardKinds: CardKind[];
         numberOfCards: number;
         /**
          * めくれるカードの枚数
@@ -304,7 +326,15 @@ type Effect =
          * - 指定しない場合は、全てのカードをめくることができる
          */
         numberOfCardsToFlip?: number;
-      } & DistributeToEffectParams;
+      } & CardFilteringEffectParams &
+        DistributeToEffectParams;
+    }
+  | {
+      effectKind: "selectCardsFromDiscardPile";
+      params: {
+        numberOfCards: number;
+      } & CardFilteringEffectParams &
+        DistributeToEffectParams;
     }
   | {
       effectKind: "shuffleDeck";
@@ -318,6 +348,10 @@ type Effect =
   | {
       effectKind: "substituteStage1PokemonWhenEvolvingToStage2";
       params: {};
+    }
+  | {
+      effectKind: "switchPokemon";
+      params: PlayerSideEffectParams;
     };
 
 /**
@@ -358,6 +392,10 @@ type ItemCard = {
 };
 
 type Card = {
+  /**
+   * 拡張やコレクションナンバーは異なるが、内容は同じカードをまとめるための概念のID
+   */
+  cardAliasGroupId?: string;
   collectorCardNumber: CollectorCardNumber;
   expansionCode: ExpansionCode;
   rarityMark: RarityMark;
