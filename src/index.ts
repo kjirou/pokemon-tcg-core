@@ -107,6 +107,59 @@ type CardKind =
   | CardKindStadium
   | CardKindSupporter;
 
+type HpChange =
+  | 0
+  | 10
+  | 20
+  | 30
+  | 40
+  | 50
+  | 60
+  | 70
+  | 80
+  | 90
+  | 100
+  | 110
+  | 120
+  | 130
+  | 140
+  | 150
+  | 160
+  | 170
+  | 180
+  | 190
+  | 200
+  | 210
+  | 220
+  | 230
+  | 240
+  | 250
+  | 260
+  | 270
+  | 280
+  | 290
+  | 300
+  | 310
+  | 320
+  | 330
+  | 340
+  | 350
+  | 360
+  | 370
+  | 380
+  | 390
+  | 400
+  | 410
+  | 420
+  | 430
+  | 440
+  | 450
+  | 460
+  | 470
+  | 480
+  | 490
+  | 500;
+
 /**
  * 拡張パックの一覧
  *
@@ -174,6 +227,17 @@ type PokemonTargetting =
  */
 type PlayerSide = "opponent" | "player";
 
+type PokemonZone = "activeSpot" | "bench";
+
+/**
+ * 場の中のカード位置の種類
+ *
+ * - 用語は、英語公式ルールブックの Zones of the Pokémon TCG のセクションに準拠している
+ */
+type CardZone = "deck" | "discardPile" | "prizeCards" | PokemonZone;
+
+type CardLocation = "hand" | CardZone;
+
 /**
  * エネルギーカード(英: Energy Card)
  *
@@ -185,9 +249,10 @@ type EnergyCard = {
   energyKind: EnergyKind;
 };
 
-type PokemonZoneConditionParams = {
-  zone: "all" | "bench" | "activeSpot";
+type PokemonZonesConditionParams = {
+  pokemonZones: PokemonZone[];
 };
+
 type RangedNumberConditionParams =
   | {
       max: number;
@@ -199,6 +264,7 @@ type RangedNumberConditionParams =
       max: number;
       min: number;
     };
+
 type SideConditionParams = {
   playerSide: PlayerSide;
 };
@@ -219,7 +285,7 @@ type Condition =
       params: {
         /** 指定しない場合は、全ての種類を意味する */
         cardKinds?: CardKind[];
-        cardZone: "deck" | "discardPile" | "hand";
+        cardLocation: "deck" | "discardPile" | "hand";
       } & RangedNumberConditionParams;
     }
   | {
@@ -235,7 +301,7 @@ type Condition =
       params: {
         energyKinds: EnergyKind[];
       } & SideConditionParams &
-        PokemonZoneConditionParams &
+        PokemonZonesConditionParams &
         RangedNumberConditionParams;
     }
   /**
@@ -255,17 +321,17 @@ type Condition =
              */
             cardKind?: CardKindPokemonBasic | CardKindPokemonStage1;
           }
-        | PokemonZoneConditionParams
+        | PokemonZonesConditionParams
         | RangedNumberConditionParams;
     }
   /**
    * ふしぎなアメを使えるポケモン数
    *
-   * - 手札を含めて使えるかを判定する
+   * - 2進化カードが手札に存在するかも含めて判定する
    */
   | {
       conditionKind: "rareCandyUsablePokemonCount";
-      params: PokemonZoneConditionParams | RangedNumberConditionParams;
+      params: PokemonZonesConditionParams | RangedNumberConditionParams;
     };
 
 /**
@@ -287,6 +353,10 @@ type PlayerSideEffectParams = {
   playerSide: PlayerSide;
 };
 
+type PokemonZonesEffectParams = {
+  pokemonZones: PokemonZone[];
+};
+
 /**
  * 効果
  *
@@ -295,29 +365,59 @@ type PlayerSideEffectParams = {
  */
 type Effect =
   | {
-      effectKind: "discardCardsInHand";
-      params: {
-        cardKinds?: CardKind[];
-        numberOfCards: number;
-      };
-    }
-  | {
-      effectKind: "discardCardsOnPokemon";
-      params: {
-        cardKinds?: "energy" | "pokemonTool";
-        // WIP: 任意のポケモン数から任意枚指定できるか、ポケモンそれぞれから任意数指定できるかの表現
-        numberOfCards: number;
-      };
-    }
-  | {
       effectKind: "drawCards";
       params: {
-        cardZone: "deck" | "discardPile";
         numberOfCards: number;
-      } & DistributeToEffectParams;
+      };
     }
   | {
-      effectKind: "selectCardsFromDeck";
+      effectKind: "healPokemon";
+      params: {
+        amount: HpChange;
+        /**
+         * 一度に対象にできるポケモンの数
+         *
+         * - 一体に対して複数回回復することはできない
+         */
+        numberOfTargets: number;
+      };
+    }
+  | ({
+      effectKind: "moveCards";
+      params: {
+        cardKinds?: CardKind[];
+        moveFrom: "hand" | "discardPile";
+        moveTo: "bench" | "deck" | "discardPile";
+        /**
+         * 何枚のカードを対象にするか
+         *
+         * - 指定しない場合は、全てのカードを対象にする
+         */
+        numberOfCards?: number;
+        /**
+         * 山札に戻す場合の挙動
+         *
+         * - デフォルトは、山札の一番上に戻す
+         */
+        toTheBottomOfDeck?: boolean;
+      };
+    } & PlayerSideEffectParams)
+  | {
+      effectKind: "moveCardsOnPokemons";
+      params: {
+        cardKinds?: ("energy" | "pokemonTool")[];
+        moveFrom: PokemonZone[];
+        moveTo: ("deck" | "discardPile" | "hand" | PokemonZone)[];
+        /**
+         * 合計で何枚のカードを対象にするか
+         *
+         * - 合計枚数以内なら、複数のポケモンを対象にできる
+         */
+        numberOfCards: number;
+      };
+    }
+  | {
+      effectKind: "searchCardsFromDeck";
       params: {
         numberOfCards: number;
         /**
@@ -330,7 +430,7 @@ type Effect =
         DistributeToEffectParams;
     }
   | {
-      effectKind: "selectCardsFromDiscardPile";
+      effectKind: "searchCardsFromDiscardPile";
       params: {
         numberOfCards: number;
       } & CardFilteringEffectParams &
