@@ -51,8 +51,13 @@
 // - スター団のしたっぱ: 相手のバトルポケモンについているエネルギーを1個選び、相手の山札の上にもどす。
 // - ペパー: 自分の山札から「グッズ」と「ポケモンのどうぐ」を1枚ずつ選び、相手に見せて、手札に加える。そして山札を切る。
 //
-// ### ポケモンの特殊な特技・特性
-// - :
+// ### ポケモンの特殊なワザ・特性
+// - ヘラクロス
+//   - ワザ: スマッシュホーン: このワザのダメージは抵抗力を計算しない。
+// - サボネア
+//   - 特性: はんげきばり: このポケモンが、バトル場で相手のポケモンからワザのダメージを受けたとき、ワザを使ったポケモンにダメカンを3個のせる。
+// - タマゲタケ
+//   - ワザ: 自分の山札から(草)タイプのたねポケモンを1枚選び、ベンチに出す。そして山札を切る。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -239,6 +244,24 @@ type CardZone = "deck" | "discardPile" | "prizeCards" | PokemonZone;
 type CardLocation = "hand" | CardZone;
 
 /**
+ * カード種類の絞り込み
+ *
+ * - 複数選択された場合は、最も制約が強いものが適用される。基本的には、複数の条件を同時に設定することはない。
+ * - どれも存在しない時は任意のカードを選択できる
+ */
+type CardFilter = {
+  cardAliasGroupIds?: string[];
+  cardIds?: CardId[];
+  cardKinds?: CardKind[];
+  /**
+   * エネルギーの種類
+   *
+   * - cardKindsが"energy","pokemon","stage1","stage2"の時のみ合わせて有効
+   */
+  energyKinds?: EnergyKind[];
+};
+
+/**
  * エネルギーカード(英: Energy Card)
  *
  * - スターターキットでは、8種類の基本エネルギーしかない
@@ -334,17 +357,6 @@ type Condition =
       params: PokemonZonesConditionParams | RangedNumberConditionParams;
     };
 
-/**
- * カードの種類の絞り込み
- *
- * - cardIdsやcardAliasGroupIdsとAND条件になる、どれも存在しない時は任意のカードを選択できる
- */
-type CardFilteringEffectParams = {
-  cardAliasGroupIds?: string[];
-  cardIds?: CardId[];
-  cardKinds?: CardKind[];
-};
-
 type DistributeToEffectParams = {
   distributeTo: "bench" | "hand";
 };
@@ -364,6 +376,24 @@ type PokemonZonesEffectParams = {
  * - ゲームプレイ中のユーザー入力によって明らかになる値は、引数として定義しないこと
  */
 type Effect =
+  | {
+      effectKind: "dealDamage";
+      params: {
+        damage: HpChange;
+        /**
+         * 抵抗力を無視するか
+         *
+         * - デフォルトは、抵抗力を無視しない
+         */
+        ignoreResistance?: boolean;
+      };
+    }
+  | {
+      effectKind: "dealDamageToBenchedPokemon";
+      params: {
+        damage: HpChange;
+      };
+    }
   | {
       effectKind: "drawCards";
       params: {
@@ -419,6 +449,7 @@ type Effect =
   | {
       effectKind: "searchCardsFromDeck";
       params: {
+        cardFilter?: CardFilter;
         numberOfCards: number;
         /**
          * めくれるカードの枚数
@@ -426,15 +457,14 @@ type Effect =
          * - 指定しない場合は、全てのカードをめくることができる
          */
         numberOfCardsToFlip?: number;
-      } & CardFilteringEffectParams &
-        DistributeToEffectParams;
+      } & DistributeToEffectParams;
     }
   | {
       effectKind: "searchCardsFromDiscardPile";
       params: {
+        cardFilter?: CardFilter;
         numberOfCards: number;
-      } & CardFilteringEffectParams &
-        DistributeToEffectParams;
+      } & DistributeToEffectParams;
     }
   | {
       effectKind: "shuffleDeck";
