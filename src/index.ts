@@ -20,6 +20,7 @@
 //     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 // - 疑問メモ
+//   - "ジュナイパーex" って ex 付きが名前なの？
 
 // スターターデッキの調査
 //
@@ -57,7 +58,11 @@
 // - サボネア
 //   - 特性: はんげきばり: このポケモンが、バトル場で相手のポケモンからワザのダメージを受けたとき、ワザを使ったポケモンにダメカンを3個のせる。
 // - タマゲタケ
-//   - ワザ: 自分の山札から(草)タイプのたねポケモンを1枚選び、ベンチに出す。そして山札を切る。
+//   - ワザ: もようでつる: 自分の山札から(草)タイプのたねポケモンを1枚選び、ベンチに出す。そして山札を切る。
+// - ジュナイパーex
+//   - 特性: じゅうおうむじん: 自分の番に1回使える。ベンチにいるこのポケモンを、バトルポケモンと入れ替える。または、バトル場にいるこのポケモンを、ベンチポケモンと入れ替える。
+// - ミニーブ
+//   - ワザ: すいとる: このポケモンのHPを「10」回復する。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -272,6 +277,18 @@ type EnergyCard = {
   energyKind: EnergyKind;
 };
 
+/**
+ * ポケモンの特殊状態(英: Special Conditions)
+ *
+ * - なお、「ポケモンチェック」は、英語で Pokemon Checkup
+ */
+type SpecialCondition =
+  | "asleep"
+  | "burned"
+  | "confused"
+  | "paralyzed"
+  | "poisoned";
+
 type PokemonZonesConditionParams = {
   pokemonZones: PokemonZone[];
 };
@@ -361,6 +378,16 @@ type DistributeToEffectParams = {
   distributeTo: "bench" | "hand";
 };
 
+type OnlySelfEffectParams = {
+  /**
+   * 自分自身のみを対象にするか
+   *
+   * - 自身がバトルポケモンか、ベンチで自身を対象にするか、どちらかの選択のみ可能
+   * - デフォルトは、 false
+   */
+  onlySelf?: boolean;
+};
+
 type PlayerSideEffectParams = {
   playerSide: PlayerSide;
 };
@@ -377,6 +404,12 @@ type PokemonZonesEffectParams = {
  */
 type Effect =
   | {
+      effectKind: "attachSpecialConditions";
+      params: {
+        specialConditions: SpecialCondition[];
+      };
+    }
+  | {
       effectKind: "dealDamage";
       params: {
         damage: HpChange;
@@ -392,6 +425,12 @@ type Effect =
       effectKind: "dealDamageToBenchedPokemon";
       params: {
         damage: HpChange;
+        /**
+         * 一度に対象にできるポケモンの数
+         *
+         * - 一体に対して複数回実行することはできない
+         */
+        numberOfTargets: number;
       };
     }
   | {
@@ -402,15 +441,17 @@ type Effect =
     }
   | {
       effectKind: "healPokemon";
-      params: {
-        amount: HpChange;
-        /**
-         * 一度に対象にできるポケモンの数
-         *
-         * - 一体に対して複数回回復することはできない
-         */
-        numberOfTargets: number;
-      };
+      params:
+        | {
+            amount: HpChange;
+            /**
+             * 一度に対象にできるポケモンの数
+             *
+             * - 一体に対して複数回実行することはできない
+             */
+            numberOfTargets: number;
+          }
+        | OnlySelfEffectParams;
     }
   | ({
       effectKind: "moveCards";
@@ -481,7 +522,7 @@ type Effect =
     }
   | {
       effectKind: "switchPokemon";
-      params: PlayerSideEffectParams;
+      params: OnlySelfEffectParams | PlayerSideEffectParams;
     };
 
 /**
