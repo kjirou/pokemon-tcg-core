@@ -65,6 +65,10 @@
 //   - ワザ: すいとる: このポケモンのHPを「10」回復する。
 // - オリーヴァ
 //   - ワザ: いやしのかじつ: 自分のベンチポケモン1匹のHPを、すべて回復する。
+// - パルデア ケンタロス
+//   - ワザ: いかりのつの: このポケモンにのっているダメカンの数×10ダメージ追加。
+// - コータス
+//   - ワザ: しゅうちゅうほうか: このポケモンについているエネルギーの数ぶんコインを投げ、オモテの数×80ダメージ。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -223,6 +227,15 @@ type EnergyKind =
 
 type CardId = `${ExpansionCode}-${CollectorCardNumber}`;
 
+/**
+ * 自分か相手かの場の種類
+ *
+ * - 英語の公式では、"you"と"his or her"が使われている
+ */
+type PlayerSide = "opponent" | "player";
+
+type PokemonZone = "activeSpot" | "bench";
+
 type PokemonTargetting =
   | {
       pokemonTargettingKind: "activeSpot";
@@ -253,15 +266,6 @@ type PokemonTargettingOnlyOne =
     };
 
 /**
- * 自分か相手かの場の種類
- *
- * - 英語の公式では、"you"と"his or her"が使われている
- */
-type PlayerSide = "opponent" | "player";
-
-type PokemonZone = "activeSpot" | "bench";
-
-/**
  * 場の中のカード位置の種類
  *
  * - 用語は、英語公式ルールブックの Zones of the Pokémon TCG のセクションに準拠している
@@ -287,6 +291,36 @@ type CardFilter = {
    */
   energyKinds?: EnergyKind[];
 };
+
+/**
+ * ダメージ追加
+ */
+type AdditionalDamage =
+  /**
+   * ダメカン毎のダメージ追加
+   *
+   * - 例: いかりのつの(英: Raging Horns)
+   *   - このポケモンにのっているダメカンの数×10ダメージ追加。
+   *   - This attack does 10 more damage for each damage counter on this Pokémon.
+   */
+  | {
+      additionalDamageKind: "perDamageCounter";
+      amount: HpChange;
+      playerSide: PlayerSide;
+    }
+  /**
+   * エネルギー毎のダメージ追加
+   *
+   * - 例: しゅうちゅうほうか(英: Concentrated Fire)
+   *   - このポケモンについているエネルギーの数ぶんコインを投げ、オモテの数×80ダメージ。
+   *   - Flip a coin for each (Fire) Energy attached to this Pokémon. This attack does 80 damage for each heads.
+   */
+  | {
+      additionalDamageKind: "perEnergy";
+      /** デフォルトは false */
+      needCoinFlip?: boolean;
+      playerSide: PlayerSide;
+    };
 
 /**
  * エネルギーカード(英: Energy Card)
@@ -424,6 +458,7 @@ type Effect =
   | {
       effectKind: "dealDamage";
       params: {
+        additionalDamages?: AdditionalDamage[];
         damage: HpChange;
         /**
          * 抵抗力を無視するか
