@@ -63,6 +63,8 @@
 //   - 特性: じゅうおうむじん: 自分の番に1回使える。ベンチにいるこのポケモンを、バトルポケモンと入れ替える。または、バトル場にいるこのポケモンを、ベンチポケモンと入れ替える。
 // - ミニーブ
 //   - ワザ: すいとる: このポケモンのHPを「10」回復する。
+// - オリーヴァ
+//   - ワザ: いやしのかじつ: 自分のベンチポケモン1匹のHPを、すべて回復する。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -227,7 +229,27 @@ type PokemonTargetting =
     }
   | {
       pokemonTargettingKind: "bench";
-      benchIndex: number;
+      /** 全てを対象にする場合は、5を指定する */
+      numberOfTargets: 1 | 2 | 3 | 4 | 5;
+    }
+  /**
+   * 自身のみを対象にする
+   *
+   * - 自身がバトルポケモンならバトルポケモンを対象にし、自身がベンチならベンチの中で自身のみを対象にする
+   */
+  | {
+      pokemonTargettingKind: "self";
+    };
+
+type PokemonTargettingOnlyOne =
+  | {
+      pokemonTargettingKind: "activeSpot";
+    }
+  | {
+      pokemonTargettingKind: "bench";
+    }
+  | {
+      pokemonTargettingKind: "self";
     };
 
 /**
@@ -378,16 +400,6 @@ type DistributeToEffectParams = {
   distributeTo: "bench" | "hand";
 };
 
-type OnlySelfEffectParams = {
-  /**
-   * 自分自身のみを対象にするか
-   *
-   * - 自身がバトルポケモンか、ベンチで自身を対象にするか、どちらかの選択のみ可能
-   * - デフォルトは、 false
-   */
-  onlySelf?: boolean;
-};
-
 type PlayerSideEffectParams = {
   playerSide: PlayerSide;
 };
@@ -441,17 +453,10 @@ type Effect =
     }
   | {
       effectKind: "healPokemon";
-      params:
-        | {
-            amount: HpChange;
-            /**
-             * 一度に対象にできるポケモンの数
-             *
-             * - 一体に対して複数回実行することはできない
-             */
-            numberOfTargets: number;
-          }
-        | OnlySelfEffectParams;
+      params: {
+        amount: HpChange | "full";
+        targettings: PokemonTargetting[];
+      };
     }
   | ({
       effectKind: "moveCards";
@@ -522,7 +527,11 @@ type Effect =
     }
   | {
       effectKind: "switchPokemon";
-      params: OnlySelfEffectParams | PlayerSideEffectParams;
+      params:
+        | {
+            targettings: PokemonTargettingOnlyOne[];
+          }
+        | PlayerSideEffectParams;
     };
 
 /**
