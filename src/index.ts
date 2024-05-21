@@ -248,10 +248,10 @@ type PokemonZone = "activeSpot" | "bench";
 
 type PokemonTargetting =
   | {
-      pokemonTargettingKind: "activeSpot";
+      kind: "activeSpot";
     }
   | {
-      pokemonTargettingKind: "bench";
+      kind: "bench";
       /** 全てを対象にする場合は、5を指定する */
       numberOfTargets: 1 | 2 | 3 | 4 | 5;
     }
@@ -261,7 +261,7 @@ type PokemonTargetting =
    * - 自身がバトルポケモンならバトルポケモンを対象にし、自身がベンチならベンチの中で自身のみを対象にする
    */
   | {
-      pokemonTargettingKind: "self";
+      kind: "self";
     };
 
 type PokemonTargettingOnlyOne = "activeSpot" | "bench" | "self";
@@ -303,13 +303,13 @@ type DamageDealing =
   /** "normal"のショートハンド */
   | HpChange
   | {
-      damageDealingKind: "fixed";
+      kind: "fixed";
       amount: HpChange;
       sides?: PlayerSide[];
       targettings?: PokemonTargetting[];
     }
   | {
-      damageDealingKind: "normal";
+      kind: "normal";
       amount: HpChange;
       /** 抵抗力を無視するか */
       ignoreResistance?: boolean;
@@ -324,7 +324,7 @@ type DamageDealing =
    *   - This attack does 10 more damage for each damage counter on this Pokémon.
    */
   | {
-      damageDealingKind: "perDamageCounter";
+      kind: "perDamageCounter";
       amount: HpChange;
       sides?: PlayerSide[];
       targettings?: PokemonTargetting[];
@@ -333,7 +333,7 @@ type DamageDealing =
    * ポケモンコイン成功毎のダメージ
    */
   | {
-      damageDealingKind: "perCoinFlip";
+      kind: "perCoinFlip";
       amount: HpChange;
       /**
        * 成功が連投の条件か
@@ -351,7 +351,7 @@ type DamageDealing =
    *   - Flip a coin for each (Fire) Energy attached to this Pokémon. This attack does 80 damage for each heads.
    */
   | {
-      damageKind: "perEnergy";
+      kind: "perEnergy";
       /** デフォルトは false */
       conditionCoinFlip?: boolean;
       side?: PlayerSide;
@@ -409,11 +409,11 @@ type SideConditionParams = {
  */
 type Condition =
   | {
-      conditionKind: "benchedPokemonCount";
+      kind: "benchedPokemonCount";
       params: RangedNumberConditionParams;
     }
   | {
-      conditionKind: "cardCount";
+      kind: "cardCount";
       params: {
         /** 指定しない場合は、全ての種類を意味する */
         cardKinds?: CardKind[];
@@ -421,15 +421,15 @@ type Condition =
       } & RangedNumberConditionParams;
     }
   | {
-      conditionKind: "coinFlip";
+      kind: "coinFlip";
       params: {};
     }
   | {
-      conditionKind: "damageToAnyPokemon";
+      kind: "damageToAnyPokemon";
       params: RangedNumberConditionParams;
     }
   | {
-      conditionKind: "energyCount";
+      kind: "energyCount";
       params: {
         energyKinds: EnergyKind[];
       } & SideConditionParams &
@@ -443,7 +443,7 @@ type Condition =
    * - ふしぎなアメなど、通常の進化とは異なる進化方法はここでは扱わない
    */
   | {
-      conditionKind: "evolveablePokemonCount";
+      kind: "evolveablePokemonCount";
       params:
         | {
             /**
@@ -462,21 +462,9 @@ type Condition =
    * - 2進化カードが手札に存在するかも含めて判定する
    */
   | {
-      conditionKind: "rareCandyUsablePokemonCount";
+      kind: "rareCandyUsablePokemonCount";
       params: PokemonZonesConditionParams | RangedNumberConditionParams;
     };
-
-type DistributeToEffectParams = {
-  distributeTo: "bench" | "hand";
-};
-
-type PlayerSideEffectParams = {
-  playerSide: PlayerSide;
-};
-
-type PokemonZonesEffectParams = {
-  pokemonZones: PokemonZone[];
-};
 
 /**
  * 効果
@@ -493,14 +481,14 @@ type Effect =
    *   - 英: During your next turn, this Pokémon can’t attack.
    */
   | {
-      effectKind: "attachCanNotAttack";
+      kind: "attachCanNotAttack";
       params: {
         sides: PlayerSide[];
         targettings: ("activeSpot" | "self")[];
       };
     }
   | {
-      effectKind: "attachSpecialConditions";
+      kind: "attachSpecialConditions";
       params: {
         sides: PlayerSide[];
         specialConditions: SpecialCondition[];
@@ -508,26 +496,26 @@ type Effect =
       };
     }
   | {
-      effectKind: "dealDamage";
+      kind: "dealDamage";
       params: {
         damageDealings: DamageDealing[];
       };
     }
   | {
-      effectKind: "drawCards";
+      kind: "drawCards";
       params: {
         numberOfCards: number;
       };
     }
   | {
-      effectKind: "healPokemon";
+      kind: "healPokemon";
       params: {
         amount: HpChange | "full";
         targettings: PokemonTargetting[];
       };
     }
-  | ({
-      effectKind: "moveCards";
+  | {
+      kind: "moveCards";
       params: {
         cardKinds?: CardKind[];
         moveFrom: "hand" | "discardPile";
@@ -538,6 +526,7 @@ type Effect =
          * - 指定しない場合は、全てのカードを対象にする
          */
         numberOfCards?: number;
+        side: PlayerSide;
         /**
          * 山札に戻す場合の挙動
          *
@@ -545,9 +534,9 @@ type Effect =
          */
         toTheBottomOfDeck?: boolean;
       };
-    } & PlayerSideEffectParams)
+    }
   | {
-      effectKind: "moveCardsOnPokemons";
+      kind: "moveCardsOnPokemons";
       params: {
         cardKinds?: ("energy" | "pokemonTool")[];
         moveFrom: PokemonZone[];
@@ -561,9 +550,10 @@ type Effect =
       };
     }
   | {
-      effectKind: "searchCardsFromDeck";
+      kind: "searchCardsFromDeck";
       params: {
         cardFilter?: CardFilter;
+        distributeTo: "activeSpot" | "hand" | "bench";
         numberOfCards: number;
         /**
          * めくれるカードの枚数
@@ -571,17 +561,18 @@ type Effect =
          * - 指定しない場合は、全てのカードをめくることができる
          */
         numberOfCardsToFlip?: number;
-      } & DistributeToEffectParams;
+      };
     }
   | {
-      effectKind: "searchCardsFromDiscardPile";
+      kind: "searchCardsFromDiscardPile";
       params: {
         cardFilter?: CardFilter;
+        distributeTo: "activeSpot" | "hand" | "bench";
         numberOfCards: number;
-      } & DistributeToEffectParams;
+      };
     }
   | {
-      effectKind: "shuffleDeck";
+      kind: "shuffleDeck";
       params: {};
     }
   /**
@@ -590,16 +581,15 @@ type Effect =
    * - 現状は、ふしぎなアメの効果と全く同じ
    */
   | {
-      effectKind: "substituteStage1PokemonWhenEvolvingToStage2";
+      kind: "substituteStage1PokemonWhenEvolvingToStage2";
       params: {};
     }
   | {
-      effectKind: "switchPokemon";
-      params:
-        | {
-            targettings: PokemonTargettingOnlyOne[];
-          }
-        | PlayerSideEffectParams;
+      kind: "switchPokemon";
+      params: {
+        side: PlayerSide;
+        targettings: PokemonTargettingOnlyOne[];
+      };
     };
 
 /**
