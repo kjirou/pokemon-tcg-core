@@ -79,6 +79,10 @@
 //   - ワザ: さそうひのたま: 相手のベンチポケモンを1匹選び、バトルポケモンと入れ替える。その後、新しく出てきたポケモンに30ダメージ。
 // - メラルバ
 //   - ワザ: とっしん: このポケモンにも10ダメージ。
+// - グレンアルマ(英: Armarouge)
+//   - 特性: しゃくねつのよろい: このポケモンが、バトル場で相手のポケモンからワザのダメージを受けたとき、ワザを使ったポケモンをやけどにする。
+//     - 英: Scorching Armor: If this Pokémon is in the Active Spot and is damaged by an attack from your opponent’s Pokémon (even if this Pokémon is Knocked Out), the Attacking Pokémon is now Burned.
+//     - これは Effect には入らない、 Reaction みたいな別概念が必要
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
