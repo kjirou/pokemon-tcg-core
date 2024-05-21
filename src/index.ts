@@ -20,6 +20,8 @@
 //     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 // - 疑問メモ
+//   - ランプラーのさそうひのたまって、弱点や抵抗力の計算をする？
+//   - 「このポケモンにも10ダメージ。」は固定値か？
 //   - "ジュナイパーex" って ex 付きが名前なの？
 
 // スターターデッキの調査
@@ -69,6 +71,14 @@
 //   - ワザ: いかりのつの: このポケモンにのっているダメカンの数×10ダメージ追加。
 // - コータス
 //   - ワザ: しゅうちゅうほうか: このポケモンについているエネルギーの数ぶんコインを投げ、オモテの数×80ダメージ。
+// - ビクティニex
+//   - ワザ: ビクトリーフレイム: 次の自分の番、このポケモンはワザが使えない。
+// - ヒトモシ
+//   - ワザ: ひをふく: コインを1回投げオモテなら、10ダメージ追加。
+// - ランプラー
+//   - ワザ: さそうひのたま: 相手のベンチポケモンを1匹選び、バトルポケモンと入れ替える。その後、新しく出てきたポケモンに30ダメージ。
+// - メラルバ
+//   - ワザ: とっしん: このポケモンにも10ダメージ。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -254,16 +264,7 @@ type PokemonTargetting =
       pokemonTargettingKind: "self";
     };
 
-type PokemonTargettingOnlyOne =
-  | {
-      pokemonTargettingKind: "activeSpot";
-    }
-  | {
-      pokemonTargettingKind: "bench";
-    }
-  | {
-      pokemonTargettingKind: "self";
-    };
+type PokemonTargettingOnlyOne = "activeSpot" | "bench" | "self";
 
 /**
  * 場の中のカード位置の種類
@@ -293,33 +294,68 @@ type CardFilter = {
 };
 
 /**
- * ダメージ追加
+ * 与ダメージの種類
+ *
+ * - sides のデフォルト値は ["opponent"]
+ * - targettings のデフォルト値は [{ pokemonTargettingKind: "activeSpot" }]
  */
-type AdditionalDamage =
+type DamageDealing =
+  /** "normal"のショートハンド */
+  | HpChange
+  | {
+      damageDealingKind: "fixed";
+      amount: HpChange;
+      sides?: PlayerSide[];
+      targettings?: PokemonTargetting[];
+    }
+  | {
+      damageDealingKind: "normal";
+      amount: HpChange;
+      /** 抵抗力を無視するか */
+      ignoreResistance?: boolean;
+      sides?: PlayerSide[];
+      targettings?: PokemonTargetting[];
+    }
   /**
-   * ダメカン毎のダメージ追加
+   * ダメカン毎のダメージ
    *
    * - 例: いかりのつの(英: Raging Horns)
    *   - このポケモンにのっているダメカンの数×10ダメージ追加。
    *   - This attack does 10 more damage for each damage counter on this Pokémon.
    */
   | {
-      additionalDamageKind: "perDamageCounter";
+      damageDealingKind: "perDamageCounter";
       amount: HpChange;
-      playerSide: PlayerSide;
+      sides?: PlayerSide[];
+      targettings?: PokemonTargetting[];
     }
   /**
-   * エネルギー毎のダメージ追加
+   * ポケモンコイン成功毎のダメージ
+   */
+  | {
+      damageDealingKind: "perCoinFlip";
+      amount: HpChange;
+      /**
+       * 成功が連投の条件か
+       */
+      continueIfSuccess?: boolean;
+      numberOfTimes: number;
+      sides?: PlayerSide[];
+      targettings?: PokemonTargetting[];
+    }
+  /**
+   * エネルギー毎のダメージ
    *
    * - 例: しゅうちゅうほうか(英: Concentrated Fire)
    *   - このポケモンについているエネルギーの数ぶんコインを投げ、オモテの数×80ダメージ。
    *   - Flip a coin for each (Fire) Energy attached to this Pokémon. This attack does 80 damage for each heads.
    */
   | {
-      additionalDamageKind: "perEnergy";
+      damageKind: "perEnergy";
       /** デフォルトは false */
-      needCoinFlip?: boolean;
-      playerSide: PlayerSide;
+      conditionCoinFlip?: boolean;
+      side?: PlayerSide;
+      targettings?: PokemonTargetting[];
     };
 
 /**
@@ -449,35 +485,32 @@ type PokemonZonesEffectParams = {
  * - ゲームプレイ中のユーザー入力によって明らかになる値は、引数として定義しないこと
  */
 type Effect =
+  /**
+   * 次番にワザが使えない状態を付与する
+   *
+   * - 例: ビクティニex(英: Victini ex)のビクトリーフレイム(英: Victory Frame)
+   *   - 次の自分の番、このポケモンはワザが使えない。
+   *   - 英: During your next turn, this Pokémon can’t attack.
+   */
+  | {
+      effectKind: "attachCanNotAttack";
+      params: {
+        sides: PlayerSide[];
+        targettings: ("activeSpot" | "self")[];
+      };
+    }
   | {
       effectKind: "attachSpecialConditions";
       params: {
+        sides: PlayerSide[];
         specialConditions: SpecialCondition[];
+        targettings: PokemonTargetting[];
       };
     }
   | {
       effectKind: "dealDamage";
       params: {
-        additionalDamages?: AdditionalDamage[];
-        damage: HpChange;
-        /**
-         * 抵抗力を無視するか
-         *
-         * - デフォルトは、抵抗力を無視しない
-         */
-        ignoreResistance?: boolean;
-      };
-    }
-  | {
-      effectKind: "dealDamageToBenchedPokemon";
-      params: {
-        damage: HpChange;
-        /**
-         * 一度に対象にできるポケモンの数
-         *
-         * - 一体に対して複数回実行することはできない
-         */
-        numberOfTargets: number;
+        damageDealings: DamageDealing[];
       };
     }
   | {
