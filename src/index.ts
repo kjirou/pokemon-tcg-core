@@ -20,7 +20,6 @@
 //     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 // - 疑問メモ
-//   - ランプラーのさそうひのたまって、弱点や抵抗力の計算をする？
 //   - 「このポケモンにも10ダメージ。」は固定値か？
 //   - "ジュナイパーex" って ex 付きが名前なの？
 
@@ -42,6 +41,7 @@
 // - エネルギーつけかえ: 自分の場のポケモンについている基本エネルギーを1個選び、自分の別のポケモンにつけ替える。
 //
 // ### サポートカード
+//
 // - サワロ: 自分のポケモンを2匹まで選び、HPをそれぞれ「50」回復する。
 // - ジニア: 自分の山札から進化ポケモンを2枚まで選び、相手に見せて、手札に加える。そして山札を切る。
 // - ジャッジマン: おたがいのプレイヤーは、それぞれ手札をすべて山札にもどして切る。その後、それぞれ山札を4枚引く。
@@ -55,6 +55,7 @@
 // - ペパー: 自分の山札から「グッズ」と「ポケモンのどうぐ」を1枚ずつ選び、相手に見せて、手札に加える。そして山札を切る。
 //
 // ### ポケモンの特殊なワザ・特性
+//
 // - ヘラクロス
 //   - ワザ: スマッシュホーン: このワザのダメージは抵抗力を計算しない。
 // - サボネア
@@ -83,6 +84,11 @@
 //   - 特性: しゃくねつのよろい: このポケモンが、バトル場で相手のポケモンからワザのダメージを受けたとき、ワザを使ったポケモンをやけどにする。
 //     - 英: Scorching Armor: If this Pokémon is in the Active Spot and is damaged by an attack from your opponent’s Pokémon (even if this Pokémon is Knocked Out), the Attacking Pokémon is now Burned.
 //     - これは Effect には入らない、 Reaction みたいな別概念が必要
+// - ウミトリオ(英: Wugtrio)
+//   - ワザ: からめてしぼる: 次の相手の番、このワザを受けたポケモンは、にげられない。
+//     - 英: Entwining Entrapment: During your opponent’s next turn, the Defending Pokémon can’t retreat.
+// - ハルクジラ
+//   - ワザ: スイーピングタックル: このポケモンにのっているダメカンの数×20ダメージぶん、このワザのダメージは小さくなる。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -330,6 +336,8 @@ type DamageDealing =
   | {
       kind: "perDamageCounter";
       amount: HpChange;
+      /** 負の値、つまりダメージを減算する効果か。デフォルトは false 。 */
+      isNegative?: boolean;
       sides?: PlayerSide[];
       targettings?: PokemonTargetting[];
     }
@@ -491,6 +499,20 @@ type Effect =
         targettings: ("activeSpot" | "self")[];
       };
     }
+  /**
+   * 次番に「にげる」ができない状態を付与する
+   *
+   * - 例: ウミトリオ(英: Wugtrio)のからめてしぼる(英: Entwining Entrapment)
+   *   - 次の相手の番、このワザを受けたポケモンは、にげられない。
+   *   - 英: Entwining Entrapment: During your opponent’s next turn, the Defending Pokémon can’t retreat.
+   */
+  | {
+      kind: "attachCanNotRetreat";
+      params: {
+        sides: PlayerSide[];
+        targettings: ("activeSpot" | "self")[];
+      };
+    }
   | {
       kind: "attachSpecialConditions";
       params: {
@@ -591,6 +613,13 @@ type Effect =
   | {
       kind: "switchPokemon";
       params: {
+        /**
+         * 任意に実行可否を決定できるか
+         *
+         * - デフォルトは false
+         * - 例えば、「のぞむなら」(英: You may switch this Pokémon ~)のテキストがある効果はこの設定が必要
+         */
+        isOptional?: boolean;
         side: PlayerSide;
         targettings: PokemonTargettingOnlyOne[];
       };
