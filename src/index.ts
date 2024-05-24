@@ -89,6 +89,15 @@
 //     - 英: Entwining Entrapment: During your opponent’s next turn, the Defending Pokémon can’t retreat.
 // - ハルクジラ
 //   - ワザ: スイーピングタックル: このポケモンにのっているダメカンの数×20ダメージぶん、このワザのダメージは小さくなる。
+// - ピカチュウ(英: Pikachu)
+//   - ワザ: なきごえ: 次の相手の番、このワザを受けたポケモンが使うワザのダメージは「-20」される。
+//     - 英: Growl: During your opponent’s next turn, the Defending Pokémon’s attacks do 20 less damage (before applying Weakness and Resistance).
+// - ジバコイル(英: Magnezone)
+//   - ワザ: マグネリジェクト: のぞむなら、相手のバトルポケモンをベンチポケモンと入れ替える。［バトル場に出すポケモンは相手が選ぶ。］
+//     - 英: Magnetic Repulsion: You may switch out your opponent’s Active Pokémon to the Bench. (Your opponent chooses the new Active Pokémon.)
+// - バチンウニ(英: Pincurchin)
+//   - ワザ: ついげきバリバリ: このワザは、前の自分の番に、このポケモンが「しびればり」を使っていなければ使えない。
+//     - 英: Follow-Up Kerzap: You can use this attack only if this Pokémon used Stun Needle during your last turn.
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -420,6 +429,19 @@ type SideConditionParams = {
  * - ゲームプレイ中のユーザー入力によって明らかになる値は、引数として定義しないこと
  */
 type Condition =
+  /**
+   * 前回の番にバトル場のポケモンが特定のワザを使ったか
+   *
+   * - 例: バチンウニ(英: Pincurchin)
+   *   - ワザ: ついげきバリバリ: このワザは、前の自分の番に、このポケモンが「しびればり」を使っていなければ使えない。
+   *     - 英: Follow-Up Kerzap: You can use this attack only if this Pokémon used Stun Needle during your last turn.
+   */
+  | {
+      kind: "attackExecution";
+      params: {
+        // TODO: ワザの識別子として何を使うのかが未定。スターターデッキの内容を確認した上で最小のものにする。今の候補は、CardId&ワザのindex。
+      };
+    }
   | {
       kind: "benchedPokemonCount";
       params: RangedNumberConditionParams;
@@ -486,14 +508,29 @@ type Condition =
  */
 type Effect =
   /**
+   * 次番に与ダメージが減少する状態を付与する
+   *
+   * - 例: ピカチュウ(英: Pikachu): なきごえ(英: Growl)
+   *   - 次の相手の番、このワザを受けたポケモンが使うワザのダメージは「-20」される。
+   *   - 英: Growl: During your opponent’s next turn, the Defending Pokémon’s attacks do 20 less damage (before applying Weakness and Resistance).
+   */
+  | {
+      kind: "attachDamageReduction";
+      params: {
+        amount: HpChange;
+        sides: PlayerSide[];
+        targettings: ("activeSpot" | "self")[];
+      };
+    }
+  /**
    * 次番にワザが使えない状態を付与する
    *
-   * - 例: ビクティニex(英: Victini ex)のビクトリーフレイム(英: Victory Frame)
+   * - 例: ビクティニex(英: Victini ex): ビクトリーフレイム(英: Victory Frame)
    *   - 次の自分の番、このポケモンはワザが使えない。
    *   - 英: During your next turn, this Pokémon can’t attack.
    */
   | {
-      kind: "attachCanNotAttack";
+      kind: "attachNoAttack";
       params: {
         sides: PlayerSide[];
         targettings: ("activeSpot" | "self")[];
@@ -502,12 +539,12 @@ type Effect =
   /**
    * 次番に「にげる」ができない状態を付与する
    *
-   * - 例: ウミトリオ(英: Wugtrio)のからめてしぼる(英: Entwining Entrapment)
+   * - 例: ウミトリオ(英: Wugtrio): からめてしぼる(英: Entwining Entrapment)
    *   - 次の相手の番、このワザを受けたポケモンは、にげられない。
    *   - 英: Entwining Entrapment: During your opponent’s next turn, the Defending Pokémon can’t retreat.
    */
   | {
-      kind: "attachCanNotRetreat";
+      kind: "attachNoRetreat";
       params: {
         sides: PlayerSide[];
         targettings: ("activeSpot" | "self")[];
@@ -517,6 +554,8 @@ type Effect =
       kind: "attachSpecialConditions";
       params: {
         sides: PlayerSide[];
+        /** デフォルトは false */
+        conditionCoinFlip?: boolean;
         specialConditions: SpecialCondition[];
         targettings: PokemonTargetting[];
       };
@@ -565,7 +604,7 @@ type Effect =
       kind: "moveCardsOnPokemons";
       params: {
         cardKinds?: ("energy" | "pokemonTool")[];
-        moveFrom: PokemonZone[];
+        moveFrom: PokemonTargetting[];
         moveTo: ("deck" | "discardPile" | "hand" | PokemonZone)[];
         /**
          * 合計で何枚のカードを対象にするか
@@ -613,6 +652,12 @@ type Effect =
   | {
       kind: "switchPokemon";
       params: {
+        /**
+         * 入れ替え対象を相手が選ぶか
+         *
+         * - デフォルトは false
+         */
+        chooseByOpponent?: boolean;
         /**
          * 任意に実行可否を決定できるか
          *
