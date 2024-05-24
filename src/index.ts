@@ -20,6 +20,7 @@
 //     - 基本: https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/tef_rulebook_en.pdf
 //     - その他？: https://www.pokemon.com/us/play-pokemon/about/tournaments-rules-and-resources
 // - 疑問メモ
+//   - フワライドののろいをばらまくは固定ダメージ？
 //   - 「このポケモンにも10ダメージ。」は固定値か？
 //   - "ジュナイパーex" って ex 付きが名前なの？
 
@@ -98,6 +99,14 @@
 // - バチンウニ(英: Pincurchin)
 //   - ワザ: ついげきバリバリ: このワザは、前の自分の番に、このポケモンが「しびればり」を使っていなければ使えない。
 //     - 英: Follow-Up Kerzap: You can use this attack only if this Pokémon used Stun Needle during your last turn.
+// - ピクシーex(英: Clefable)
+//   - 特性: げつめんゾーン: このポケモンがいるかぎり、エネルギーがついている自分のポケモン全員のにげるためのエネルギーは、すべてなくなる。
+//     - 英: Lunar Zone: All of your Pokémon that have (Psychic) Energy attached have no Retreat Cost.
+// - フワライド
+//   - ワザ: のろいをばらまく: ダメカン8個を、相手のポケモンに好きなようにのせる。
+//     - これは固定ダメージ？
+// - ヤレユータン
+//   - ワザ: さくしのぐんばい: 相手のバトルポケモンが持っているワザを1つ選ぶ。次の相手の番、このワザを受けたポケモンは、選ばれたワザが使えない。
 
 // ### ロジック上問題になりそうな箇所のメモ
 //
@@ -533,6 +542,7 @@ type Effect =
       kind: "attachNoAttack";
       params: {
         sides: PlayerSide[];
+        // TODO: 「さくしのぐんぱい」用に1つのワザを選ぶ必要がある。ワザの識別子として何を使うのかが未定。スターターデッキの内容を確認した上で最小のものにする。今の候補は、ワザのindex。
         targettings: ("activeSpot" | "self")[];
       };
     }
@@ -559,6 +569,13 @@ type Effect =
         specialConditions: SpecialCondition[];
         targettings: PokemonTargetting[];
       };
+    }
+  | {
+      kind: "changeRetreatCost";
+      params: {
+        sides: PlayerSide[];
+        targettings: PokemonTargetting[];
+      } & ({ value: number } | { delta: number });
     }
   | {
       kind: "dealDamage";
